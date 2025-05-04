@@ -1,0 +1,35 @@
+- name: Provision staging server and configure it
+  hosts: localhost
+  gather_facts: no
+  vars:
+    instance_type: t2.medium
+    key_name: pc
+    region: us-east-1
+    image_id: ami-0e449927258d45bc4  # Ubuntu
+    security_group: launch-wizard-2
+  tasks:
+    - name: Launch EC2 instance
+      ec2:
+        key_name: "{{ key_name }}"
+        instance_type: "{{ instance_type }}"
+        image: "{{ image_id }}"
+        region: "{{ region }}"
+        group_id: "{{ security_group }}"
+        wait: true
+        instance_tags:
+          Name: staging-server
+        count: 1
+      register: ec2
+
+    - name: Add new instance to host group
+      add_host:
+        hostname: "{{ item.public_ip }}"
+        groupname: launched
+      loop: "{{ ec2.instances }}"
+
+    - name: Wait for SSH to come up
+      wait_for:
+        host: "{{ item.public_ip }}"
+        port: 22
+        timeout: 300
+      loop: "{{ ec2.instances }}"
